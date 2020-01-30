@@ -2,8 +2,10 @@ import json
 import boto3
 import os
 import csv
+import codecs
+import sys
 
-s3 = boto3.client('s3')
+s3 = boto3.resource('s3')
 dynamodb = boto3.resource('dynamodb')
 
 bucket = os.environ['bucket']
@@ -12,26 +14,17 @@ tableName = os.environ['table']
 
 def lambda_handler(event, context):
     
-    obj = s3.get_object(Bucket=bucket, Key=key)
-    rows = obj['Body'].read().decode("utf-8").split('\n')
-    headers = rows[0].split(',')
-    rows.pop(0)
+
+    #get() does not store in memory
+    obj = s3.Object(bucket, key).get()['Body']
     table = dynamodb.Table(tableName)
     
-    row_data = []
-    entry = {}
-    count = 0
-    for line in rows:
-        row_data.append(line.split(','))
-        j = 0
-        row_data[count][j] = int(row_data[count][j])
-        for k in headers:
-            entry[k] = row_data[count][j]
-            j = j + 1
-        count = count + 1
+    #DictReader is a generator; not stored in memory
+    for row in csv.DictReader(codecs.getreader('utf-8')(obj)):
         table.put_item(
-           Item=entry
+           Item=row
         )
+ 
     return {
         'statusCode': 200,
         'body': json.dumps('Uploaded to DynamoDB Table')
