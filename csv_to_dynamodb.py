@@ -16,22 +16,25 @@ def lambda_handler(event, context):
     
 
     #get() does not store in memory
-    obj = s3.Object(bucket, key).get()['Body']
-    table = dynamodb.Table(tableName)
-
+    try:
+        obj = s3.Object(bucket, key).get()['Body']
+    except:
+        print("S3 Object could not be opened. Check environment variable. ")
+    try:
+        table = dynamodb.Table(tableName)
+    except:
+        print("Error loading DynamoDB table. Check if table was created correctly and environment variable.")
+    
     batch_size = 100
     batch = []
-    count = 0
 
     #DictReader is a generator; not stored in memory
     for row in csv.DictReader(codecs.getreader('utf-8')(obj)):
-        if count >= batch_size:
+        if len(batch) >= batch_size:
             write_to_dynamo(batch)
             batch = []
-            count = 0
 
         batch.append(row)
-        count += 1
     
     if batch:
         write_to_dynamo(batch)
@@ -43,11 +46,17 @@ def lambda_handler(event, context):
 
     
 def write_to_dynamo(row):
-    table = dynamodb.Table(tableName)
-
-    with table.batch_writer() as batch:
-        for i in range(len(row)):
-            batch.put_item(
-                Item=row[i]
-            )
+    try:
+        table = dynamodb.Table(tableName)
+    except:
+        print("Error loading DynamoDB table. Check if table was created correctly and environment variable.")
+    
+    try:
+        with table.batch_writer() as batch:
+            for i in range(len(row)):
+                batch.put_item(
+                    Item=row[i]
+                )
+    except:
+        print("Error executing batch_writer")
     
