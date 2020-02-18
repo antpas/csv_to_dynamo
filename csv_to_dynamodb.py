@@ -32,7 +32,7 @@ def lambda_handler(event, context):
     for row in csv.DictReader(codecs.getreader('utf-8')(obj)):
         if len(batch) >= batch_size:
             write_to_dynamo(batch)
-            batch = []
+            batch.clear()
 
         batch.append(row)
     
@@ -45,7 +45,7 @@ def lambda_handler(event, context):
     }
 
     
-def write_to_dynamo(row):
+def write_to_dynamo(rows):
     try:
         table = dynamodb.Table(tableName)
     except:
@@ -53,9 +53,9 @@ def write_to_dynamo(row):
     
     try:
         with table.batch_writer() as batch:
-            for i in range(len(row)):
+            for i in range(len(rows)):
                 batch.put_item(
-                    Item=row[i]
+                    Item=rows[i]
                 )
     except:
         print("Error executing batch_writer")
